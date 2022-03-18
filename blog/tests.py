@@ -1,16 +1,26 @@
 from django.test import TestCase, Client
 from bs4 import BeautifulSoup
 from django.contrib.auth.models import User
-from .models import Post, Category
+from .models import Post, Category, Tag
 
 class TestView(TestCase):
     def setUp(self):
         self.client = Client()
         self.user_test1 = User.objects.create_user(username='test1', password='1234')
         self.user_test2 = User.objects.create_user(username='test2', password='1234')
-
+        
         self.cat1 = Category.objects.create(name='cat1', slug='cat1')
         self.cat2 = Category.objects.create(name='cat2', slug='cat2')
+
+        self.tag_python_kor = Tag.objects.create(
+            name="파이썬 공부 (테스트)", slug="파이썬-공부"
+        )
+        self.tag_python = Tag.objects.create(
+            name="python", slug="python"
+        )
+        self.tag_hello = Tag.objects.create(
+            name="hello", slug="hello"
+        )
 
         self.post_1 = Post.objects.create(
             title="first post",
@@ -18,6 +28,8 @@ class TestView(TestCase):
             author=self.user_test1,
             category=self.cat1
         )
+        self.post_1.tags.add(self.tag_hello)
+
         self.post_2 = Post.objects.create(
             title='second_post',
             content='well',
@@ -29,6 +41,8 @@ class TestView(TestCase):
             content='i am a post without category',
             author=self.user_test2
         )
+        self.post_3.tags.add(self.tag_python)
+        self.post_3.tags.add(self.tag_python_kor)
 
     def category_card_test(self, soup):
         categories_card = soup.find('div', id='categories-card')
@@ -77,15 +91,27 @@ class TestView(TestCase):
         post_1_card = main_area.find('div', id='post-1')
         self.assertIn(self.post_1.title, post_1_card.text)
         self.assertIn(self.post_1.category.name, post_1_card.text)
+        self.assertIn(self.post_1.author.username, post_1_card.text)
+        self.assertIn(self.tag_hello.name, post_1_card.text)
+        self.assertNotIn(self.tag_python.name, post_1_card.text)
+        self.assertNotIn(self.tag_python_kor.name, post_1_card.text)
 
         
         post_2_card = main_area.find('div', id='post-2')
         self.assertIn(self.post_2.title, post_2_card.text)
         self.assertIn(self.post_2.category.name, post_2_card.text)
+        self.assertIn(self.post_2.author.username, post_2_card.text)
+        self.assertNotIn(self.tag_hello.name, post_2_card.text)
+        self.assertNotIn(self.tag_python.name, post_2_card.text)
+        self.assertNotIn(self.tag_python_kor.name, post_2_card.text)
 
         post_3_card = main_area.find('div', id='post-3')
         self.assertIn(self.post_3.title, post_3_card.text)
         self.assertIn("No Category", post_3_card.text)
+        self.assertIn(self.post_3.author.username, post_3_card.text)
+        self.assertNotIn(self.tag_hello.name, post_3_card.text)
+        self.assertIn(self.tag_python.name, post_3_card.text)
+        self.assertIn(self.tag_python_kor.name, post_3_card.text)
 
         self.assertIn(self.user_test1.username, main_area.text)
         self.assertIn(self.user_test2.username, main_area.text)
@@ -123,6 +149,9 @@ class TestView(TestCase):
         # TODO: add author check
         self.assertIn(self.post_1.content, post_area.text)
         self.assertIn(self.user_test1.username, post_area.text)
+        self.assertIn(self.tag_hello.name, post_area.text)
+        self.assertNotIn(self.tag_python.name, post_area.text)
+        self.assertNotIn(self.tag_python_kor.name, post_area.text)
     
     def test_category_page(self):
         response = self.client.get(self.cat1.get_absolute_url())
