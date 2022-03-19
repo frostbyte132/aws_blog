@@ -8,7 +8,9 @@ class TestView(TestCase):
         self.client = Client()
         self.user_test1 = User.objects.create_user(username='test1', password='1234')
         self.user_test2 = User.objects.create_user(username='test2', password='1234')
-        
+        self.user_test2.is_staff = True
+        self.user_test2.save()
+
         self.cat1 = Category.objects.create(name='cat1', slug='cat1')
         self.cat2 = Category.objects.create(name='cat2', slug='cat2')
 
@@ -168,3 +170,35 @@ class TestView(TestCase):
         self.assertIn(self.post_1.title, main_area.text)
         self.assertNotIn(self.post_2.title, main_area.text)
         self.assertNotIn(self.post_3.title, main_area.text)
+
+    def test_create_post(self):
+        response = self.client.get('/blog/create_post/')
+        self.assertNotEqual(response.status_code, 200)
+
+        # not a staff, cannot login to post create page
+        self.client.login(username='test1', password='1234')
+        response = self.client.get('/blog/create_post/')
+        self.assertNotEqual(response.status_code, 200)
+
+        # a staff, can login to post create page
+        self.client.login(username='test2', password='1234')
+        response = self.client.get('/blog/create_post/')
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        self.assertIn('Create Post', soup.title.text)
+        main_area = soup.find('div', id='main-area')
+        self.assertIn('Create New Post', main_area.text)
+
+        self.client.post(
+            '/blog/create_post/',
+            {
+                'title': 'Post form 만들기',
+                'content': "Post form 페이지 생성"
+            }
+        )
+        self.assertEqual(Post.objects.count(), 4)
+        last_post = Post.objects.last()
+        self.assertEqual(last_post.title, "Post form 만들기")
+        self.assertEqual(last_post.author.username, 'test2')
